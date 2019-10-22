@@ -3,16 +3,19 @@ WEIGH = 1280
 HEIGHT = 1024
 open_canvas(WEIGH, HEIGHT)
 stage1 = load_image('stageone.jpg')
-character = load_image('animation_sheet.png')
+daath = load_image('daath_animation_sheet.png')
+daath_jump = load_image('daath_jump_animation.png')
 
 
 def handle_events():
     global running
     global dir
     global stance_flag
+    global jump_stance_flag
     global y_dir
     global jump_count
     global y
+    global jump_flag
 
     events = get_events()
 
@@ -28,17 +31,29 @@ def handle_events():
                 stance_flag = 0
                 dir -= 1
             elif event.key == SDLK_UP:
+                jump_flag = 1
+                if stance_flag == 0:
+                    jump_stance_flag = 0
+                elif stance_flag == 1:
+                    jump_stance_flag = 1
+                if event.key == SDLK_LEFT:
+                    jump_stance_flag = 1
+                elif event.key == SDLK_RIGHT:
+                    jump_stance_flag = 0
                 if jump_count <= 0:
-                    y_dir = 1
+                    y_dir = 2
                     jump_count += 1
                 elif jump_count >= 2:
                     while y == 275:
                         y_dir = 0
-                        y -= 1
+                        y -= 2
                         if y == 275:
                             y_dir += 1
                 if y == 275:
+                    jump_flag = 0
                     jump_count = 0
+                    y_dir = 2
+
             elif event.key == SDLK_ESCAPE:
                 running = False
 
@@ -54,16 +69,30 @@ def handle_events():
 x = 400
 y = 275
 frame = 0
+jump_frame = 0
 running = True
 dir = 0
 stance_flag = 3
 y_dir = 0
 jump_count = 0
+jump_flag = 0
+jump_stance_flag = 1
 
 while running:
     clear_canvas()
+    jump_frame += 1
     stage1.draw(WEIGH / 2, HEIGHT / 2)
-    character.clip_draw(frame*100, stance_flag*100, 100, 100, x, y)
+    if jump_flag == 0 and y <= 275:
+        frame = (frame + 1) % 8
+        daath.clip_draw(frame*100, stance_flag*100, 100, 100, x, y)
+    elif jump_flag == 1 or y > 275:
+        jump_frame = jump_frame + 1
+        if jump_frame >= 9:
+            daath_jump.clip_draw(900, jump_stance_flag*100, 100, 100, x, y)
+        else:
+            daath_jump.clip_draw(jump_frame*100, jump_stance_flag*100, 100, 100, x, y)
+        delay(0.001)
+
     handle_events()
     update_canvas()
     handle_events()
@@ -78,6 +107,6 @@ while running:
         y_dir = 0
     elif y >= 350:
         y_dir -= 1
-    delay(0.04)
+    delay(0.045)
 
 
