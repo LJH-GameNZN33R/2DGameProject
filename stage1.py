@@ -101,6 +101,7 @@ while running:
     frame = (frame + 1) % 8
     if x >= 1280:
         x = 0
+
     elif x <= 0:
         x = 1280
     if y <= 275:
