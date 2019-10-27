@@ -1,4 +1,5 @@
 from pico2d import *
+# import Items
 WEIGH = 1280
 HEIGHT = 1024
 open_canvas(WEIGH, HEIGHT)
