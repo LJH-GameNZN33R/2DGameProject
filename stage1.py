@@ -1,4 +1,5 @@
 from pico2d import *
+import game_framework
 # import Items
 WEIGH = 1280
 HEIGHT = 1024
@@ -17,6 +18,9 @@ def handle_events():
     global jump_count
     global y
     global jump_flag
+    global story_flag1
+    global story_flag2
+    global story_flag3
 
     events = get_events()
 
@@ -110,5 +114,10 @@ while running:
     elif y >= 350:
         y_dir -= 1
     delay(0.045)
+
+    if story_flag1:
+        change_
+
+
 
 
