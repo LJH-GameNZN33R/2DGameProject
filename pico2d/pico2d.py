@@ -1,13 +1,20 @@
 import sys
+import os
 import types
 import ctypes
 import math
 import json
 
-from sdl2 import *
-from sdl2.sdlimage import *
-from sdl2.sdlttf import *
-from sdl2.sdlmixer import *
+#try:
+from .sdl2 import *
+from .sdl2.sdlimage import *
+from .sdl2.sdlttf import *
+from .sdl2.sdlmixer import *
+#except ImportError:
+#    print("Error: cannot import pysdl2 - probably not installed")
+#    sys.exit(-1) # abort program execution
+
+
 
 
 lattice_on = True
@@ -31,7 +38,7 @@ def get_canvas_height():
     return canvas_height
 
 
-def open_canvas(w=int(800), h=int(600), sync=False):
+def open_canvas(w=int(800), h=int(600), sync=False, full=False):
     global window, renderer
     global canvas_width, canvas_height
     global debug_font
@@ -61,12 +68,20 @@ def open_canvas(w=int(800), h=int(600), sync=False):
 
     #SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 0);
     caption = ('Pico2D Canvas (' + str(w) + 'x' + str(h) + ')' + ' 1000.0 FPS').encode('UTF-8')
-    #window = SDL_CreateWindow(caption, SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, w, h, SDL_WINDOW_SHOWN)
-    window = SDL_CreateWindow(caption, SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, w, h, SDL_WINDOW_SHOWN)
+    if full:
+        flags = SDL_WINDOW_FULLSCREEN
+    else:
+        flags = SDL_WINDOW_SHOWN
+    #window = SDL_CreateWindow(caption, SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, w, h, flags)
+    window = SDL_CreateWindow(caption, SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, w, h, flags)
     if sync:
         renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC)
     else:
         renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED)
+
+    if renderer is None:
+        renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_SOFTWARE)
+
     #SDL_ShowCursor(SDL_DISABLE)
 
 
@@ -76,7 +91,41 @@ def open_canvas(w=int(800), h=int(600), sync=False):
     update_canvas()
     clear_canvas()
     update_canvas()
-    debug_font = load_font('ConsolaMalgun.TTF', 16)
+
+
+    # debug not work when building release version including pico2d
+    debug_font_path = os.getenv('PICO2D_DATA_PATH') + '/ConsolaMalgun.TTF'
+    try:
+        debug_font = load_font(debug_font_path, 16)
+    except:
+        debug_font = None
+        print('warning: debug_print is not working')
+
+def close_canvas():
+    if audio_on:
+        Mix_HaltMusic()
+        Mix_HaltChannel(-1)
+        Mix_CloseAudio()
+        Mix_Quit()
+    TTF_Quit()
+    IMG_Quit()
+    SDL_DestroyRenderer(renderer)
+    SDL_DestroyWindow(window)
+    SDL_Quit()
+
+
+
+def resize_canvas(w, h):
+    global canvas_height, canvas_width
+    canvas_width, canvas_height = w, h
+    SDL_SetWindowSize(window, w, h)
+    caption = ('Pico2D Canvas (' + str(w) + 'x' + str(h) + ')' + ' 1000.0 FPS').encode('UTF-8')
+    SDL_SetWindowTitle(window, caption)
+    clear_canvas_now()
+
+
+
+
 
 def show_lattice():
     global lattice_on
@@ -90,17 +139,7 @@ def hide_lattice():
     clear_canvas()
     update_canvas()
 
-def close_canvas():
-    if audio_on:
-        Mix_HaltMusic()
-        Mix_HaltChannel(-1)
-        Mix_CloseAudio()
-        Mix_Quit()
-    TTF_Quit()
-    IMG_Quit()
-    SDL_DestroyRenderer(renderer)
-    SDL_DestroyWindow(window)
-    SDL_Quit()
+
 
 def clear_canvas():
     SDL_SetRenderDrawColor(renderer, 200, 200, 210, 255)
@@ -149,7 +188,8 @@ def print_fps():
 def debug_print(str):
     global canvas_height
     global debug_font
-    debug_font.draw(0, canvas_height - 10, str, (0,255,0))
+    if debug_font is not None:
+        debug_font.draw(0, canvas_height - 10, str, (0,255,0))
 
 class Event:
     """Pico2D Event Class"""
@@ -204,11 +244,22 @@ class Image:
         SDL_DestroyTexture(self.texture)
 
     def rotate_draw(self, rad, x, y, w = None, h = None):
-        """Rotate(in radian unit) and draw image to back buffer"""
+        """Rotate(in radian unit) and draw image to back buffer, center of rotation is the image center"""
         if w == None and h == None:
             w,h = self.w, self.h
         rect = to_sdl_rect(x-w/2, y-h/2, w, h)
-        SDL_RenderCopyEx(renderer, self.texture, None, rect, math.degrees(-rad), None, SDL_FLIP_NONE);
+        SDL_RenderCopyEx(renderer, self.texture, None, rect, math.degrees(-rad), None, SDL_FLIP_NONE)
+
+    def composite_draw(self, rad, flip, x, y, w = None, h = None):
+        if w is None and h is None:
+            w,h = self.w, self.h
+        rect = to_sdl_rect(x-w/2, y-h/2, w, h)
+        flip_flag = SDL_FLIP_NONE
+        if 'h' in flip:
+            flip_flag |= SDL_FLIP_HORIZONTAL
+        if 'v' in flip:
+            flip_flag |= SDL_FLIP_VERTICAL
+        SDL_RenderCopyEx(renderer, self.texture, None, rect, math.degrees(-rad), None, flip_flag)
 
     def draw(self, x, y, w=None, h=None):
         """Draw image to back buffer"""
@@ -234,6 +285,17 @@ class Image:
         dest_rect = to_sdl_rect(x-w/2, y-h/2, w, h)
         SDL_RenderCopy(renderer, self.texture, src_rect, dest_rect)
 
+    def clip_composite_draw(self, left, bottom, width, height, rad, flip, x, y, w = None, h = None):
+        if w is None and h is None:
+            w,h = self.w, self.h
+        src_rect = SDL_Rect(left, self.h - bottom - height, width, height)
+        dst_rect = to_sdl_rect(x-w/2, y-h/2, w, h)
+        flip_flag = SDL_FLIP_NONE
+        if 'h' in flip:
+            flip_flag |= SDL_FLIP_HORIZONTAL
+        if 'v' in flip:
+            flip_flag |= SDL_FLIP_VERTICAL
+        SDL_RenderCopyEx(renderer, self.texture, src_rect, dst_rect, math.degrees(-rad), None, flip_flag)
 
     def clip_draw_to_origin(self, left, bottom, width, height, x, y, w=None, h=None):
         """Clip a rectangle from image and draw"""
@@ -261,6 +323,16 @@ class Image:
     def opacify(self, o):
         SDL_SetTextureAlphaMod(self.texture, int(o*255.0))
 
+    def clip_image(self, left, bottom, width, height):
+        clip_texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, width, height)
+        SDL_SetRenderTarget(renderer, clip_texture)
+        SDL_RenderClear(renderer)
+        src_rect = SDL_Rect(left, self.h - bottom - height, width, height)
+        SDL_RenderCopy(renderer, self.texture, src_rect, None)
+        SDL_SetRenderTarget(renderer, None)
+        return Image(clip_texture)
+
+
 def load_image(name):
     texture = IMG_LoadTexture(renderer, name.encode('UTF-8'))
     if (not texture):
@@ -271,25 +343,19 @@ def load_image(name):
     return image
 
 
+
 class Font:
     def __init__(self, name, size=20):
         #print('font' + name + 'loaded')
         self.font = TTF_OpenFont(name.encode('utf-8'), size)
+        if (not self.font):
+            print('cannot load %s' % name)
+            raise IOError
 
     def draw(self, x, y, str, color=(0,0,0)):
         sdl_color = SDL_Color(color[0], color[1], color[2])
         #print(str)
-        surface = TTF_RenderText_Blended(self.font, str.encode('utf-8'), sdl_color)
-        texture = SDL_CreateTextureFromSurface(renderer, surface)
-        SDL_FreeSurface(surface)
-        image = Image(texture)
-        image.draw(x+image.w/2, y)
-
-
-    # unicode rendering not working well at the moment, needs to modify
-    def draw_unicode(self, x, y, str, color=(0,0,0)):
-        sdl_color = SDL_Color(color[0], color[1], color[2])
-        surface = TTF_RenderUNICODE_Blended(self.font, ctypes.cast(str.encode('utf-16'), ctypes.POINTER(ctypes.c_uint16)), sdl_color)
+        surface = TTF_RenderUTF8_Blended(self.font, str.encode('utf-8'), sdl_color)
         texture = SDL_CreateTextureFromSurface(renderer, surface)
         SDL_FreeSurface(surface)
         image = Image(texture)
@@ -379,21 +445,57 @@ def load_wav(name):
 
         return Wav(data)
     else:
-        print('audio fuctions cannot work due to sound or speaker problems')
+        print('audio functions cannot work due to sound or speaker problems')
         raise IOError
 
 
 
 
+# for pytmx
+from functools import partial
+#import pytmx
+
+def pico2d_image_loader(filename, colorkey, **kwargs):
+
+    def extract_image(rect=None, flags=None):
+        if rect:
+            try:
+                flip = ''
+                if flags.flipped_horizontally:
+                    flip = 'h'
+                if flags.flipped_vertically:
+                    flip = 'v'
+                if flags.flipped_diagonally:
+                    flip = 'hv'
+
+                return image, rect, flip
+
+            except ValueError:
+                print('Tile bounds outside bounds of tileset image')
+                raise
+        else:
+            return image, None, ''
+
+    image = load_image(filename)
+
+    if colorkey:
+        print('color key deprecated')
+
+    return extract_image
 
 
+def load_tilemap(filename):
+    return pytmx.TiledMap(filename, image_loader=pico2d_image_loader)
 
 
 
 
 def test_pico2d():
-    print('testing pico2d')
-    print('done')
+    pass
+
+
+def main():
+	pass
 
 
 print("Pico2d is prepared.")

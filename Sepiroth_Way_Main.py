@@ -1,4 +1,5 @@
 import stage1
+import os
 import Items
 import Character
 import pico2d

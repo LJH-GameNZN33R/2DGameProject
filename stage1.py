@@ -115,8 +115,9 @@ while running:
         y_dir -= 1
     delay(0.045)
 
-    if story_flag1:
-        change_
+    #if story_flag1:
+    #    change_state()
+    #    pass
 
 
 
