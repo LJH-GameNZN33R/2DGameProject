@@ -9,6 +9,9 @@ stage1 = load_image('stageone.jpg')
 daath = load_image('daath_animation_sheet.png')
 daath_jump = load_image('daath_jump_animation.png')
 
+items = Item()
+
+
 def handle_events():
     global running
     global dir
@@ -105,6 +108,7 @@ while running:
     y += y_dir*6
     frame = (frame + 1) % 8
     if x >= 1280:
+        items.Zayin_draw()
         x = 0
 
     elif x <= 0:

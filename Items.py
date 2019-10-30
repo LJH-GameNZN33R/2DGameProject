@@ -1,13 +1,12 @@
 from pico2d import *
 
 
-class Items:
+class Item:
     def __init__(self):
         self.image = load_image("Hibri.png")
 
-    def Zayin(self):
-        self.item.clip_draw(0, 0, 50, 50, 100, 100)
-
+    def Zayin_draw(self):
+        self.item.draw(0, 0, 50, 50, 100, 100)
 
 
 def Zayin():
