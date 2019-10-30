@@ -1,10 +1,17 @@
 from pico2d import *
 
-item = load_image("Hibri.png")
+
+class Items:
+    def __init__(self):
+        self.image = load_image("Hibri.png")
+
+    def Zayin(self):
+        self.item.clip_draw(0, 0, 50, 50, 100, 100)
+
 
 
 def Zayin():
-    item.draw(0, 0, 50, 50, 100, 100)
+    item.clip_draw(0, 0, 50, 50, 100, 100)
     pass
 
 

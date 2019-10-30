@@ -1,13 +1,13 @@
 from pico2d import *
 import game_framework
-# import Items
+import Items
 WEIGH = 1280
 HEIGHT = 1024
+
 open_canvas(WEIGH, HEIGHT)
 stage1 = load_image('stageone.jpg')
 daath = load_image('daath_animation_sheet.png')
 daath_jump = load_image('daath_jump_animation.png')
-
 
 def handle_events():
     global running
